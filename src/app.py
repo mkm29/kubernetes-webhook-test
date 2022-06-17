@@ -10,22 +10,54 @@ from flask import Flask, jsonify, request
 app = Flask(__name__)
 
 
+def has_security_context(spec) -> bool:
+    if spec["request"]["object"]["spec"]["template"]["spec"].get("securityContext"):
+        return True, "Security Context set at pod level"
+    container_scc = False
+    for container in spec["request"]["object"]["spec"]["template"]["spec"][
+        "containers"
+    ]:
+        if not container.get("securityContext"):
+            container_scc = True
+        if not container_scc:
+            return True, "Security Context set at container level"
+    return False, "No security context found in deployment"
+
+
 @app.route("/validate", methods=["POST"])
 def validate():
-    allowed = True
-    try:
-        for container_spec in request.json["request"]["object"]["spec"]["containers"]:
-            if "env" in container_spec:
-                allowed = False
-    except KeyError:
-        pass
+    request_info = request.get_json()
+    print("Recieved request (validating): {}".format(request_info))
+    uid = request_info["request"].get("uid")
+
+    if request_info["request"]["object"]["metadata"]["labels"].get(
+        app.config.get("LABEL")
+    ):
+        app.logger.info(
+            f'Object {request_info["request"]["object"]["kind"]}/{request_info["request"]["object"]["metadata"]["name"]} contains the required "{app.config["LABEL"]}" label. Allowing the request.'
+        )
+
+        return admission_response(True, uid, f"{app.config['LABEL']} label exists.")
+    else:
+        app.logger.error(
+            f'Object {request_info["request"]["object"]["kind"]}/{request_info["request"]["object"]["metadata"]["name"]} doesn\'t have the required "{app.config["LABEL"]}" label. Request rejected!'
+        )
+
+        return admission_response(
+            False, uid, f"The label \"{app.config.get('LABEL')}\" isn't set!"
+        )
+
+
+def admission_response(allowed, uid, message):
     return jsonify(
         {
+            "apiVersion": "admission.k8s.io/v1",
+            "kind": "AdmissionReview",
             "response": {
                 "allowed": allowed,
-                "uid": request.json["request"]["uid"],
-                "status": {"message": "env keys are prohibited"},
-            }
+                "uid": uid,
+                "status": {"message": message},
+            },
         }
     )
 
@@ -44,12 +76,14 @@ def mutate():
     patch = jsonpatch.JsonPatch.from_diff(spec, modified_spec)
     return jsonify(
         {
+            "apiVersion": "admission.k8s.io/v1",
+            "kind": "AdmissionReview",
             "response": {
                 "allowed": True,
                 "uid": request.json["request"]["uid"],
                 "patch": base64.b64encode(str(patch).encode()).decode(),
                 "patchtype": "JSONPatch",
-            }
+            },
         }
     )
 
@@ -60,4 +94,5 @@ def health():
 
 
 if __name__ == "__main__":
+    app.config["LABEL"] = "example.com/new-label"
     app.run(host="0.0.0.0", debug=True)  # pragma: no cover

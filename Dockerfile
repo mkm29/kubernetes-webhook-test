@@ -27,5 +27,6 @@ RUN pytest
 
 FROM base as Prod
 COPY src /app
-ENTRYPOINT ["gunicorn"]
-CMD ["app:app"]
+EXPOSE 8080
+ENTRYPOINT [ "gunicorn" ]
+CMD ["--bind", "0.0.0.0:8080", "app:app"]

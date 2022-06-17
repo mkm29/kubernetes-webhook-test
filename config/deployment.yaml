@@ -15,7 +15,7 @@ spec:
   - name: https
     protocol: TCP
     port: 443
-    targetPort: 443
+    targetPort: 8080
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -35,12 +35,13 @@ spec:
         app: webhook
       name: webhook
     spec:
+      serviceAccountName: webhook
       containers:
         - name: webhook
-          image: smigula/webhook:0.3.1
+          image: smigula/webhook:0.3.3
           imagePullPolicy: IfNotPresent
           args:
-            - "--bind=0.0.0.0:443"
+            - "--bind=0.0.0.0:8080"
             - "--certfile=/certs/tls.crt"
             - "--keyfile=/certs/tls.key"
             - "app:app"
@@ -52,14 +53,14 @@ spec:
             httpGet:
               path: /health
               scheme: HTTPS
-              port: 443
+              port: 8080
             initialDelaySeconds: 3
             periodSeconds: 5
           livenessProbe:
             httpGet:
               path: /health
               scheme: HTTPS
-              port: 443
+              port: 8080
             initialDelaySeconds: 3
             periodSeconds: 5
       volumes:
