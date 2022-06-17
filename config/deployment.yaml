@@ -38,7 +38,7 @@ spec:
       serviceAccountName: webhook
       containers:
         - name: webhook
-          image: smigula/webhook:0.3.5
+          image: smigula/webhook:0.3.6
           imagePullPolicy: Always
           args:
             - "--bind=0.0.0.0:443"

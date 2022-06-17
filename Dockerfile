@@ -1,4 +1,4 @@
-FROM python:3.7-alpine3.8 AS parent
+FROM python:3.10-alpine3.16 AS parent
 WORKDIR /app
 RUN pip3 install pipenv
 COPY Pipfile /app/
