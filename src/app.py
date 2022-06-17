@@ -9,6 +9,8 @@ from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
+LABEL = "com.rtx.dataplatform.security"
+
 
 def has_security_context(spec) -> bool:
     if spec["request"]["object"]["spec"]["template"]["spec"].get("securityContext"):
@@ -30,22 +32,18 @@ def validate():
     print("Recieved request (validating): {}".format(request_info))
     uid = request_info["request"].get("uid")
 
-    if request_info["request"]["object"]["metadata"]["labels"].get(
-        app.config.get("LABEL")
-    ):
+    if request_info["request"]["object"]["metadata"]["labels"].get(LABEL):
         app.logger.info(
-            f'Object {request_info["request"]["object"]["kind"]}/{request_info["request"]["object"]["metadata"]["name"]} contains the required "{app.config["LABEL"]}" label. Allowing the request.'
+            f'Object {request_info["request"]["object"]["kind"]}/{request_info["request"]["object"]["metadata"]["name"]} contains the required "{LABEL}" label. Allowing the request.'
         )
 
-        return admission_response(True, uid, f"{app.config['LABEL']} label exists.")
+        return admission_response(True, uid, f"{LABEL} label exists.")
     else:
         app.logger.error(
-            f'Object {request_info["request"]["object"]["kind"]}/{request_info["request"]["object"]["metadata"]["name"]} doesn\'t have the required "{app.config["LABEL"]}" label. Request rejected!'
+            f'Object {request_info["request"]["object"]["kind"]}/{request_info["request"]["object"]["metadata"]["name"]} doesn\'t have the required "{LABEL}" label. Request rejected!'
         )
 
-        return admission_response(
-            False, uid, f"The label \"{app.config.get('LABEL')}\" isn't set!"
-        )
+        return admission_response(False, uid, f'The label "{LABEL}" isn\'t set!')
 
 
 def admission_response(allowed, uid, message):
@@ -88,11 +86,15 @@ def mutate():
     )
 
 
+@app.route("/home")
+def home():
+    return jsonify({"message": "Hello World!"})
+
+
 @app.route("/health", methods=["GET"])
 def health():
     return ("", http.HTTPStatus.NO_CONTENT)
 
 
 if __name__ == "__main__":
-    app.config["LABEL"] = "example.com/new-label"
     app.run(host="0.0.0.0", debug=True)  # pragma: no cover
